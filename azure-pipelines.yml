@@ -1,0 +1,55 @@
+# Node.js with Vue
+# Build a Node.js project that uses Vue.
+# Add steps that analyze code, save build artifacts, deploy, and more:
+# https://docs.microsoft.com/azure/devops/pipelines/languages/javascript
+
+trigger:
+- master
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+- task: NodeTool@0
+  inputs:
+    versionSpec: '18.x'
+  displayName: 'Install Node.js'
+
+- script: |
+    npm install
+    npm run build
+  displayName: 'npm install and build'
+
+- script: |
+    str=`node -p "require('./package.json').version"` 
+    echo "##vso[task.setvariable variable=npmVersionString;isoutput=true;]$str"
+  name: BuildNumber
+  displayName: 'set build number'
+
+- task: CopyFiles@2
+  inputs:
+    sourceFolder: '$(Build.SourcesDirectory)/dist'
+    contents: '**' 
+    targetFolder: $(Build.ArtifactStagingDirectory)
+  displayName: 'Copy files'
+
+- task: ArchiveFiles@2
+  inputs:
+    rootFolderOrFile: '$(Build.SourcesDirectory)'
+    archiveType: 'zip'
+    archiveFile: '$(Build.ArtifactStagingDirectory)/npm/$(BuildNumber.npmVersionString).zip'
+  displayName: 'Archive files'   
+
+- task: PublishPipelineArtifact@1
+  inputs:
+    targetPath: '$(Build.ArtifactStagingDirectory)/npm'
+    artifactName: npm
+  displayName: 'Publish pipeline artifact'
+
+- task: Npm@1
+  inputs:
+    command: custom
+    customCommand: publish
+    customRegistry: useFeed
+    customFeed: vue-fukidashi-component/vue-fukidashi-component
+  displayName: 'Publish npm artifact'
